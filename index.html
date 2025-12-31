@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta name="viewport"
+content="width=device-width, height=device-height,
+initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+
+<meta charset="UTF-8">
+<title>Galaxia Rosa – Novafer</title>
+<style>
+html, body {
+    margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: black;
+  height: 100%;
+  width: 100%;
+  user-select: none;
+  font-family: Arial, sans-serif;
+  color: white;
+
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+
+#tooltip {
+    position:absolute;
+    background:rgba(0,0,0,0.6);
+    padding:4px 8px;
+    border-radius:6px;
+    font-size:13px;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .2s;
+    white-space:nowrap;
+    
+}
+#novafer-logo{
+    position:fixed;
+    top:22px;
+    left:50%;
+    transform:translateX(-50%);
+    font-family: Arial, sans-serif;
+    letter-spacing: 0.6em;
+    font-size: 13px;
+    color: rgba(255,200,240,0.55);
+    pointer-events:none;
+    z-index:10;
+    text-shadow:
+      0 0 8px rgba(255,160,220,0.35),
+      0 0 18px rgba(180,120,255,0.25);
+}
+
+</style>
+</head>
+<body>
+
+<canvas id="galaxia"></canvas>
+<div id="tooltip"></div>
+<div id="novafer-logo">N O V A F E R</div>
+
+<script>
+const canvas = document.getElementById("galaxia");
+// 🎨 PALETA GALÁCTICA (CAMBIA AQUÍ LA ENERGÍA)
+const PALETA = {
+  nucleo: [
+    "rgba(255,255,255,0.65)",
+    "rgba(120,255,200,0.55)",
+    "rgba(80,200,180,0.45)",
+    "rgba(40,120,100,0.35)"
+  ],
+  estrellas: {
+    base: "rgba(200,255,240,",
+    glow: "rgba(160,255,220,"
+  },
+  auroraHue: [140, 200],   // verdes–turquesa
+  cometa: "rgba(120,255,220,",
+  portalMain: ["rgba(180,255,220,1)", "rgba(120,200,180,0.45)"],
+  portalSecondary: ["rgba(140,220,255,0.9)", "rgba(80,160,200,0.3)"],
+  wormhole: "rgba(120,255,200,"
+};
+
+const ctx = canvas.getContext("2d");
+const tooltip = document.getElementById("tooltip");
+
+let w, h;
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  canvas.style.width = width + "px";
+  canvas.style.height = height + "px";
+
+  canvas.width = Math.floor(width * dpr);
+  canvas.height = Math.floor(height * dpr);
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  w = width;
+  h = height;
+}
+
+window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", resize);
+resize();
+
+resize();
+window.addEventListener("resize", resize);
+
+// =======================
+// 🌌 UNIVERSO
+// =======================
+let universe = { scale: 1.2, offsetX: 0, offsetY: 0 };
+
+// =======================
+// 🚀 VIAJE AUTOMÁTICO
+// =======================
+let travelTarget = null;
+let travelProgress = 0;
+function lerp(a,b,t){ return a + (b - a) * t; }
+
+// =======================
+// ✨ CAMPO ESTELAR
+// =======================
+const stars = [];
+const STAR_COUNT = 1200;
+
+
+for(let i=0;i<STAR_COUNT;i++){
+   stars.push({
+    x: Math.random()*4000 - 2000,
+    y: Math.random()*2600 - 1300,
+    z: Math.random()*0.9 + 0.1, // 🌌 profundidad (0.1 lejos – 1 cerca)
+    size: Math.random()<0.2 ? Math.random()*2.5+2 : Math.random()*1.5+0.5,
+    alpha: Math.random()*0.6 + 0.3,
+    twinkle: Math.random()*Math.PI*2,
+    glow: Math.random()<0.2
+});
+
+}
+
+// =======================
+// ☄️ COMETAS
+// =======================
+// =======================
+// 🌠 ESTRELLAS FUGACES
+// =======================
+const shootingStars = [];
+
+function spawnShootingStar(){
+  shootingStars.push({
+    x: Math.random()*w,
+    y: Math.random()*h*0.5,
+    vx: -6 - Math.random()*6,
+    vy: 3 + Math.random()*4,
+    life: 0,
+    maxLife: 60 + Math.random()*30
+  });
+}
+
+setInterval(()=>{
+  if(shootingStars.length < 4) spawnShootingStar();
+}, 1200);
+const comets = [];
+const cometColors = [
+  "rgba(200,220,255,",
+  "rgba(220,200,255,",
+  "rgba(255,220,240,"
+];
+
+for(let i=0;i<3;i++){
+  const legendary = Math.random() < 0.18; // 🌟 solo algunos elegidos
+
+  comets.push({
+    angle: Math.random()*Math.PI*2,
+    radius: 480 + Math.random()*260,
+    speed: legendary 
+      ? 0.00035 + Math.random()*0.0002 
+      : 0.0005 + Math.random()*0.0004,
+
+    nucleus: legendary ? 2.6 : 1.5 + Math.random()*0.6,
+    coma: legendary ? 28 : 16 + Math.random()*10,
+    tail: legendary ? 140 : 80 + Math.random()*60,
+
+    hue: legendary ? 48 + Math.random()*40 : 210 + Math.random()*60,
+    legendary,
+    trail: [],
+    dust: [],
+    noise: Math.random()*Math.PI*2
+  });
+}
+// =======================
+// 🌈 ESPÍRITUS DE AURORA NOVAFER
+// =======================
+const auroras = [];
+const AURORA_COUNT = 26;
+
+for(let i=0;i<AURORA_COUNT;i++){
+  auroras.push({
+    x: Math.random()*800 - 400,
+    y: Math.random()*800 - 400,
+    r: 10 + Math.random()*14,
+    a: Math.random()*Math.PI*2,
+    s: 0.001 + Math.random()*0.002,
+    o: Math.random()*0.4 + 0.25,
+    hue: PALETA.auroraHue[0] + Math.random()*(PALETA.auroraHue[1]-PALETA.auroraHue[0])
+
+  });
+}
+
+// =======================
+// 🔥 PORTALES
+// =======================
+const portals = [
+  { name:"NovaferStudio", type:"main", url:"https://www.google.com" },
+  { name:"Silencio Novafer", type:"main", url:"https://www.bing.com" },
+  { name:"Novafer Astrologia", type:"main", url:"https://novafer-universe.github.io/umbra.novafer/" },
+  { name:"novaferAi", type:"main", url:"https://www.youtube.com" },
+
+  { name:"Altar de novafer", type:"secondary", url:"" },
+  { name:"Atardecer novafer ", type:"secondary", url:"" },
+  { name:"Nnovaferapp", type:"secondary", url:"" },
+  { name:"alma duda-novafer", type:"secondary", url:"" },
+  { name:"ecosistema cosmos", type:"secondary", url:"https://novafer-universe.github.io/novafer.teamareparasiempre/" },
+  { name:"ecosistema.novafer", type:"secondary", url:"" },
+  { name:"atardecer.novafer", type:"secondary", url:"" },
+  { name:"UmbralNovafer", type:"secondary", url:"" },
+  { name:"Vida Novafer", type:"secondary", url:"" }
+];
+
+const specialStars = portals.map((p,i)=>{
+  const isMain = p.type === "main";
+
+  // radio base (evita el Sol)
+  const baseRadius = isMain ? 300 : 440;
+  const angle = (Math.PI * 2 / portals.length) * i;
+
+  const x = Math.cos(angle) * baseRadius;
+  const y = Math.sin(angle) * baseRadius * 0.65;
+
+  return {
+    name: p.name,
+    type: p.type,
+    url: p.url,
+
+    // 🔑 POSICIÓN LÓGICA (NO TOCAR)
+    x,
+    y,
+
+    // ✨ MOVIMIENTO VISUAL
+    orbitRadius: baseRadius,
+    orbitAngle: angle,
+    orbitSpeed: 0.00025 + Math.random()*0.00025,
+
+    size: isMain ? 9 : 6,
+    pulse: Math.random()*Math.PI*2
+  };
+});
+
+// =======================
+// 🌀 WORMHOLE
+// =======================
+
+const wormhole={x:-500,y:0,radius:55,pulse:0};
+
+// =======================
+// 🖱 INTERACCIÓN
+// =======================
+let mouseX=0, mouseY=0;
+let hoveredPortal = null;
+let dragging=false,lastX,lastY;
+
+canvas.addEventListener("mousedown",e=>{
+ dragging=true; lastX=e.clientX; lastY=e.clientY;
+});
+canvas.addEventListener("mouseup",()=>dragging=false);
+canvas.addEventListener("mouseleave",()=>dragging=false);
+
+canvas.addEventListener("mousemove",e=>{
+ if(dragging){
+  universe.offsetX+=e.clientX-lastX;
+  universe.offsetY+=e.clientY-lastY;
+  lastX=e.clientX; lastY=e.clientY;
+ }
+ mouseX=e.clientX; mouseY=e.clientY;
+});
+
+canvas.addEventListener("wheel",e=>{
+ universe.scale+=-e.deltaY*0.001;
+ universe.scale=Math.max(.7,Math.min(universe.scale,2));
+});
+wormhole.runes = Array.from({length: 14}, (_,i)=>({
+  a: (Math.PI*2/14)*i,
+  s: 0.004 + Math.random()*0.003,
+  o: 0.35 + Math.random()*0.35,
+  r: 1 + Math.random()*0.4
+}));
+
+// =======================
+// 🖱 CLICK → VIAJE AUTOMÁTICO
+// =======================
+canvas.addEventListener("click", ()=>{
+  if(!hoveredPortal) return;
+  travelTarget = hoveredPortal;
+  travelProgress = 0;
+});
+// 🫀 RESPIRACIÓN DEL UNIVERSO NOVAFER
+let novaferBreath = 0;
+
+// =======================
+// 🌠 ANIMACIÓN
+// =======================
+function animate(){
+ ctx.clearRect(0,0,w,h);
+ // Latido lento universal
+novaferBreath += 0.003; // pulso maestro lento
+const breath = Math.sin(novaferBreath) * 0.5 + 1;
+700 * breath
+function novaferPulse(base, strength=0.12){
+  return base * (1 + Math.sin(novaferBreath) * strength);
+}
+
+// 🌌 NÚCLEO NEBULAR – PORTAL MAESTRO NOVAFER
+// Ritmo del latido nebular
+const time = Date.now() * 0.00025;
+const pulse = Math.sin(time) * 120;
+
+// 🌈 ESPÍRITUS DE AURORA – ALMAS NOVAFER
+auroras.forEach(a=>{
+  a.a += a.s;
+
+  const px = (Math.cos(a.a)*120 + a.x) * universe.scale + universe.offsetX + w/2;
+  const py = (Math.sin(a.a)*120 + a.y) * universe.scale + universe.offsetY + h/2;
+
+  const dist = Math.hypot(mouseX - px, mouseY - py);
+  const react = dist < 140 ? (140 - dist) * 0.04 : 0;
+
+  const g = ctx.createRadialGradient(px, py, 0, px, py, (a.r + react) * universe.scale * 2.5);
+  g.addColorStop(0, `hsla(${a.hue},90%,75%,${a.o})`);
+  g.addColorStop(0.4, `hsla(${a.hue+20},90%,65%,${a.o*0.45})`);
+  g.addColorStop(1, "rgba(0,0,0,0)");
+
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(px, py, (a.r + react) * universe.scale * 2.5, 0, Math.PI*2);
+  ctx.fill();
+});
+
+// Centro del universo (con desplazamiento)
+const centerX = w / 2 + universe.offsetX;
+const centerY = h / 2 + universe.offsetY;
+
+// Gradiente radial sagrado
+const nebulaCore = ctx.createRadialGradient(
+  centerX,
+  centerY,
+  0,
+  centerX,
+  centerY,
+  720 + pulse
+);
+
+nebulaCore.addColorStop(0.00, PALETA.nucleo[0]);
+nebulaCore.addColorStop(0.18, PALETA.nucleo[1]);
+nebulaCore.addColorStop(0.35, PALETA.nucleo[2]);
+nebulaCore.addColorStop(0.55, PALETA.nucleo[3]);
+nebulaCore.addColorStop(1.00, "rgba(0,0,0,0)");
+
+nebulaCore.addColorStop(1.00, "rgba(0,0,0,0)");
+
+ctx.fillStyle = nebulaCore;
+ctx.fillRect(0, 0, w, h);
+// 🌊 Ondas energéticas tipo galaxia viva
+for(let i=0;i<6;i++){
+  const wave = ctx.createRadialGradient(
+    centerX,
+    centerY,
+    200 + i*90 + Math.sin(time+i)*40,
+    centerX,
+    centerY,
+    380 + i*120
+  );
+
+ wave.addColorStop(0, "rgba(255,255,255,0.03)");
+ wave.addColorStop(0.35, "rgba(255,180,220,0.10)");
+ wave.addColorStop(0.65, "rgba(255,120,200,0.08)");
+ wave.addColorStop(1, "rgba(0,0,0,0)");
+
+  ctx.fillStyle = wave;
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 520 + i*90, 0, Math.PI*2);
+  ctx.fill();
+}
+
+
+
+ // ✨ Estrellas mejoradas
+stars.forEach(s=>{
+  s.twinkle+=0.008;
+  let flicker=Math.sin(s.twinkle)*0.2;
+
+  let x=s.x*universe.scale+universe.offsetX+w/2;
+  let y=s.y*universe.scale+universe.offsetY+h/2;
+let r = (s.size + flicker) * universe.scale * (1 + Math.sin(novaferBreath) * 0.08);
+
+  let a=Math.min(1,s.alpha+flicker);
+
+  // Colores suaves Novafer
+     let starColor = s.glow
+  ? `${PALETA.estrellas.glow}${a})`
+  : `${PALETA.estrellas.base}${a})`;
+
+
+  // Halo elegante
+  let halo=ctx.createRadialGradient(x,y,0,x,y,r*4);
+  halo.addColorStop(0,`rgba(200,220,255,${a*0.8})`);
+  halo.addColorStop(0.4,`rgba(255,200,230,${a*0.3})`);
+  halo.addColorStop(1,"rgba(255,255,255,0)");
+
+  ctx.fillStyle=halo;
+  ctx.beginPath();
+  ctx.arc(x,y,r*4,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle=starColor;
+  ctx.beginPath();
+  ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.fill();
+});
+
+ // ☄️ Cometas con aura celeste
+comets.forEach(c=>{
+  c.angle+=c.speed;
+  c.noise+=0.02;
+  
+  
+  // 🪐 ÓRBITA TIPO SOMBRERO (perfil)
+const tilt = 0.28;              // aplasta el disco
+const rotation = Math.PI * 0.08; // inclinación elegante
+
+let ox = Math.cos(c.angle) * c.radius;
+let oy = Math.sin(c.angle) * c.radius * tilt;
+
+// rotación del plano
+const rx = ox * Math.cos(rotation) - oy * Math.sin(rotation);
+const ry = ox * Math.sin(rotation) + oy * Math.cos(rotation);
+
+const x = rx * universe.scale + universe.offsetX + w/2;
+const y = ry * universe.scale + universe.offsetY + h/2;
+
+
+// 🌌 Aura celeste viva (Novafer)
+let auraPulse = Math.sin(c.noise) * 0.25 + 1;
+
+let aura = ctx.createRadialGradient(
+  x, y, 0,
+  x, y, c.coma * universe.scale * 1.8 * auraPulse
+);
+
+aura.addColorStop(0,"rgba(180,230,255,0.9)");
+aura.addColorStop(0.4,"rgba(120,200,255,0.45)");
+aura.addColorStop(1,"rgba(120,200,255,0)");
+
+
+  ctx.fillStyle=aura;
+  ctx.beginPath();
+  ctx.arc(x,y,c.coma*universe.scale*1.8,0,Math.PI*2);
+  ctx.fill();
+
+  // ☄️ Cola
+  const dx=Math.cos(c.angle+Math.PI/2);
+  const dy=Math.sin(c.angle+Math.PI/2);
+
+  for(let i=0;i<c.tail;i++){
+    const spread=Math.sin(i*0.15+c.noise)*2;
+    const tx=x-dx*i*2*universe.scale+spread;
+    const ty=y-dy*i*2*universe.scale+spread;
+    const a=(1-i/c.tail)*0.3;
+    ctx.fillStyle=`rgba(170,220,255,${a})`;
+    ctx.beginPath();
+    ctx.arc(tx,ty,(2-i/c.tail)*universe.scale,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  // Núcleo
+  ctx.fillStyle="rgba(255,255,255,1)";
+  ctx.beginPath();
+  ctx.arc(x,y,c.nucleus*universe.scale,0,Math.PI*2);
+  ctx.fill();
+});
+
+// 🌠 Estrellas fugaces
+shootingStars.forEach((s,i)=>{
+  s.x += s.vx;
+  s.y += s.vy;
+  s.life++;
+
+  const alpha = 1 - s.life / s.maxLife;
+
+  ctx.strokeStyle = `rgba(180,220,255,${alpha})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(s.x, s.y);
+  ctx.lineTo(s.x - s.vx*6, s.y - s.vy*6);
+  ctx.stroke();
+
+  if(s.life > s.maxLife) shootingStars.splice(i,1);
+});
+
+// ☀️ SOL CELESTE NOVAFER
+const sun = {
+  x: 0,
+  y: 0,
+  baseRadius: 95,
+  pulse: 0,
+  rays: Array.from({ length: 40 }, (_, i) => ({
+    a: (Math.PI * 2 / 40) * i,
+    l: 50 + Math.random() * 70,
+    s: 0.002 + Math.random() * 0.003
+  }))
+};
+
+ // ⭐ Portales
+ hoveredPortal = null;
+ specialStars.forEach(s=>{
+  s.orbitAngle += s.orbitSpeed;
+  s.pulse+=0.03;
+  let pulse=Math.sin(s.pulse)*2+4;
+  let x = Math.cos(s.orbitAngle) * s.orbitRadius * universe.scale
+        + universe.offsetX + w/2;
+
+let y = Math.sin(s.orbitAngle) * s.orbitRadius * 0.65 * universe.scale
+        + universe.offsetY + h/2;
+
+  let r=(s.size+pulse)*universe.scale;
+
+let colors = s.type==="main"
+ ?["rgba(220,245,255,1)","rgba(120,200,255,0.45)"]
+ :["rgba(180,220,255,0.9)","rgba(120,160,255,0.3)"];
+
+
+
+  let glow=ctx.createRadialGradient(x,y,0,x,y,r*3);
+  glow.addColorStop(0,colors[0]);
+  glow.addColorStop(0.6,colors[1]);
+  glow.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=glow;
+  ctx.beginPath(); ctx.arc(x,y,r*3,0,Math.PI*2); ctx.fill();
+
+  ctx.fillStyle="white";
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+
+  let dist=Math.hypot(mouseX-x,mouseY-y);
+  if(dist < r+6) hoveredPortal = s;
+ });
+
+ // 💬 Tooltip
+ canvas.style.cursor = hoveredPortal ? "pointer" : "default";
+ if(hoveredPortal){
+   tooltip.style.opacity = 1;
+   tooltip.textContent = hoveredPortal.name;
+   tooltip.style.left = (mouseX + 15) + "px";
+   tooltip.style.top = (mouseY + 15) + "px";
+ } else {
+   tooltip.style.opacity = 0;
+ }
+
+
+
+sun.pulse += 0.015;
+
+const sx = sun.x * universe.scale + universe.offsetX + w / 2;
+const sy = sun.y * universe.scale + universe.offsetY + h / 2;
+const sr = (sun.baseRadius + Math.sin(sun.pulse) * 7) * universe.scale;
+
+// 🌟 HALO CELESTE
+let halo = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr * 3.4);
+halo.addColorStop(0, "rgba(220,255,255,0.95)");
+halo.addColorStop(0.35, "rgba(140,220,255,0.65)");
+halo.addColorStop(0.65, "rgba(80,180,255,0.35)");
+halo.addColorStop(1, "rgba(80,180,255,0)");
+
+ctx.fillStyle = halo;
+ctx.beginPath();
+ctx.arc(sx, sy, sr * 3.4, 0, Math.PI * 2);
+ctx.fill();
+
+// ☀️ NÚCLEO DEL SOL
+let core = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+core.addColorStop(0, "rgba(255,255,255,1)");
+core.addColorStop(0.45, "rgba(210,245,255,0.95)");
+core.addColorStop(1, "rgba(140,210,255,0.9)");
+
+ctx.fillStyle = core;
+ctx.beginPath();
+ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+ctx.fill();
+
+// ⚡ RAYOS CELESTES
+sun.rays.forEach(r => {
+  r.a += r.s;
+
+  const inner = sr * 0.85;
+  const outer = sr + r.l * universe.scale;
+
+  const x1 = sx + Math.cos(r.a) * inner;
+  const y1 = sy + Math.sin(r.a) * inner;
+  const x2 = sx + Math.cos(r.a) * outer;
+  const y2 = sy + Math.sin(r.a) * outer;
+
+  ctx.strokeStyle = "rgba(180,230,255,0.32)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
+});
+
+ // 🫀 CORAZÓN DE NOVAFER
+const novaferHeart = {
+  x: 0,
+  y: -180,
+  baseRadius: 22,
+  pulse: 0
+};
+ // 🚀 VIAJE
+ if(travelTarget){
+   travelProgress += 0.02;
+   let targetScale = 1.9;
+
+   universe.scale = lerp(universe.scale, targetScale, travelProgress);
+
+   universe.offsetX = lerp(universe.offsetX, -travelTarget.x * universe.scale, travelProgress);
+   universe.offsetY = lerp(universe.offsetY, -travelTarget.y * universe.scale, travelProgress);
+
+   if(travelProgress >= 1){
+     let url = travelTarget.url;
+     let name = travelTarget.name;
+     travelTarget = null;
+
+     if(url){
+       window.open(url,"_blank");
+     } else {
+       alert("✨ Has llegado al portal:\n" + name);
+       const logo = document.getElementById("novafer-logo");
+logo.style.opacity = 0.45 + Math.sin(Date.now()*0.001)*0.15;
+// 💎 Filtro de brillo final
+ctx.fillStyle = "rgba(255,180,255,0.025)";
+ctx.fillRect(0,0,w,h);
+// 🎞️ VIGNETTE ELEGANTE NOVAFER
+let vignette = ctx.createRadialGradient(
+  w/2, h/2, Math.min(w,h)*0.2,
+  w/2, h/2, Math.max(w,h)*0.75
+);
+
+vignette.addColorStop(0, "rgba(0,0,0,0)");
+vignette.addColorStop(1, "rgba(0,0,0,0.28)");
+
+ctx.fillStyle = vignette;
+ctx.fillRect(0,0,w,h);
+
+
+     }
+   }
+ }
+
+ requestAnimationFrame(animate);
+}
+animate();
+</script>
+</body>
+</html>
